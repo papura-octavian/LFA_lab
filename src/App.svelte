@@ -1,36 +1,87 @@
 <script>
-  const data = [
-    { label: 'Ian', value: 35 },
-    { label: 'Feb', value: 52 },
-    { label: 'Mar', value: 41 },
-    { label: 'Apr', value: 68 },
-    { label: 'Mai', value: 57 }
-  ]
+  import { onMount } from 'svelte'
 
-  const maxValue = Math.max(...data.map((item) => item.value))
-  const chartHeight = 220
-  const barWidth = 60
-  const gap = 24
-  const leftPadding = 28
-  const baseLine = 260
-  const chartWidth = leftPadding + data.length * (barWidth + gap)
+  let graphContainer
+  let network
+
+  const getVis = () => /** @type {any} */ (window).vis
+
+  const ensureVis = async () => {
+    const existingVis = getVis()
+    if (existingVis?.Network) return existingVis
+
+    await new Promise((resolve, reject) => {
+      const script = document.createElement('script')
+      script.src = 'https://unpkg.com/vis-network/standalone/umd/vis-network.min.js'
+      script.async = true
+      script.onload = resolve
+      script.onerror = reject
+      document.head.appendChild(script)
+    })
+
+    const loadedVis = getVis()
+    if (!loadedVis?.Network) {
+      throw new Error('vis.js nu a fost incarcat corect')
+    }
+
+    return loadedVis
+  }
+
+  onMount(() => {
+    let isDestroyed = false
+
+    ;(async () => {
+      try {
+        const vis = await ensureVis()
+        if (isDestroyed) return
+
+        const data = {
+          nodes: [
+            { id: 1, label: 'q0', color: '#0ea5e9' },
+            { id: 2, label: 'q1', color: '#22c55e' },
+            { id: 3, label: 'q2', color: '#f59e0b' }
+          ],
+          edges: [
+            { from: 1, to: 2, label: 'a', arrows: 'to' },
+            { from: 2, to: 3, label: 'b', arrows: 'to' },
+            { from: 3, to: 1, label: 'c', arrows: 'to' }
+          ]
+        }
+
+        const options = {
+          physics: false,
+          edges: {
+            smooth: {
+              type: 'curvedCW',
+              roundness: 0.2
+            },
+            font: {
+              align: 'middle'
+            }
+          },
+          nodes: {
+            shape: 'circle',
+            font: { color: '#0f172a', size: 16 }
+          }
+        }
+
+        network = new vis.Network(graphContainer, data, options)
+      } catch (error) {
+        console.error('Nu am putut incarca vis.js', error)
+      }
+    })()
+
+    return () => {
+      isDestroyed = true
+      network?.destroy()
+      network = null
+    }
+  })
 </script>
 
 <main class="wrap">
-  <h1>Grafic simplu</h1>
-  <svg viewBox={`0 0 ${chartWidth} 300`} role="img" aria-label="Grafic simplu pe luni">
-    <line x1={leftPadding - 8} y1={baseLine} x2={chartWidth} y2={baseLine} class="axis" />
-
-    {#each data as point, i}
-      {@const x = leftPadding + i * (barWidth + gap)}
-      {@const barHeight = (point.value / maxValue) * chartHeight}
-      {@const y = baseLine - barHeight}
-
-      <rect x={x} y={y} width={barWidth} height={barHeight} rx="8" class="bar" />
-      <text x={x + barWidth / 2} y={baseLine + 22} class="label">{point.label}</text>
-      <text x={x + barWidth / 2} y={y - 8} class="value">{point.value}</text>
-    {/each}
-  </svg>
+  <h1>Graf cu vis.js</h1>
+  <div bind:this={graphContainer} class="graph" role="img" aria-label="Graf randat cu vis.js"></div>
 </main>
 
 <style>
@@ -45,38 +96,11 @@
     color: #1f2937;
   }
 
-  svg {
+  .graph {
     width: 100%;
-    height: auto;
+    height: 520px;
     background: #f8fafc;
     border: 1px solid #e2e8f0;
     border-radius: 14px;
-    padding: 10px;
-    box-sizing: border-box;
-  }
-
-  .axis {
-    stroke: #94a3b8;
-    stroke-width: 1.5;
-  }
-
-  .bar {
-    fill: #0ea5e9;
-  }
-
-  .label,
-  .value {
-    text-anchor: middle;
-    font-family: ui-sans-serif, system-ui, sans-serif;
-    fill: #334155;
-  }
-
-  .label {
-    font-size: 14px;
-  }
-
-  .value {
-    font-size: 12px;
-    font-weight: 600;
   }
 </style>
